@@ -308,6 +308,7 @@ sips -s format jpeg "$ASSET_DIR/after.png" --out "$ASSET_DIR/after.jpg"
 | --- | --- |
 | `scripts/pr-check-env.sh` | 自检 `gh` 版本、`--attach` 可用性、登录身份、目标仓库写权限 |
 | `scripts/pr-media-comment.sh` | 给已有 PR 追加一条带多张附件的评论，不改动原描述 |
+| `scripts/install-skill.sh` | 检测本机装有哪些 Coding Agent，把 `skills/github-pr-media` 同步进去并校验 sha256 |
 
 ```bash
 GUIDE="$HOME/Tools/github-pr-media-guide"    # 手册克隆到的位置

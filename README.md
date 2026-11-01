@@ -59,28 +59,44 @@ gh pr create --base main --title "feat: 优化设置页面布局" \
 ## 装到 Agent 里
 
 [`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) 是给 Coding Agent 用的规则文件，
-不含任何项目私有信息。按你的工具放到对应位置：
-
-| 工具 | 放哪 |
-| --- | --- |
-| WorkBuddy | `~/.workbuddy/skills/github-pr-media/` |
-| Claude Code（及兼容 Agent Skills 规范的） | `~/.claude/skills/github-pr-media/`（个人）或 `<项目>/.claude/skills/`（仅该项目） |
-| Codex / 只读 `AGENTS.md` 的 | 把 SKILL.md 正文粘进 `AGENTS.md`，或写一行引用它的路径 |
+**不含任何项目私有信息，也不需要改任何仓库的 `AGENTS.md`**——装到用户级目录，所有项目自动生效。
 
 ```bash
-mkdir -p ~/.claude/skills
-cp -R "$GUIDE/skills/github-pr-media" ~/.claude/skills/
+"$GUIDE/scripts/install-skill.sh" --dry-run   # 先看它打算装到哪
+"$GUIDE/scripts/install-skill.sh"             # 确认后执行
 ```
+
+脚本会**先判断这台机器装了哪些 Agent**，只往真实存在的那些里写：
+
+| 工具 | 检测依据 | 目标目录 |
+| --- | --- | --- |
+| WorkBuddy | `/Applications/WorkBuddy.app` | `~/.workbuddy/skills/github-pr-media/` |
+| Claude Code | `claude` 在 `PATH` 上 | `~/.claude/skills/github-pr-media/` |
+| Codex | `codex` 在 `PATH` 上 | `~/.codex/skills/github-pr-media/` |
+
+> **只有配置目录不算装了。** 卸载 CLI 通常不会删 `~/.claude` 这类目录，所以
+> 「目录存在但工具已卸」会被明确标注 `looks uninstalled` 并跳过，避免你以为装好了。
+> 写入后逐份比对 sha256，不一致直接报错。
 
 装好之后，Agent 遇到「UI 改动要贴截图」会自己走这套流程：临时目录截图 → 写本地路径的 Markdown →
 `gh --attach` → 按失败类型判断要不要重试 → 验证渲染和 `git status`。
+
+### 以后怎么更新
+
+改仓库里的 `skills/github-pr-media/SKILL.md` → 提交 → 重跑 `install-skill.sh`。
+**不要直接改本机副本**，那是产物，下次同步会被覆盖。
+
+完整说明（检测规则、`--force` / `--target`、手动同步、卸载、生效时机）见
+[安装与同步](docs/INSTALL-SKILL.zh-CN.md)。
 
 ## 目录结构
 
 | 路径 | 是什么 |
 | --- | --- |
 | [`docs/PR-MEDIA-GUIDE.zh-CN.md`](docs/PR-MEDIA-GUIDE.zh-CN.md) | 完整手册：流程、失败分类、体积限制、FAQ、源码依据附录 |
+| [`docs/INSTALL-SKILL.zh-CN.md`](docs/INSTALL-SKILL.zh-CN.md) | 技能的安装、更新、同步与卸载 |
 | [`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) | 可被 Agent 直接加载的规则文件 |
+| [`scripts/install-skill.sh`](scripts/install-skill.sh) | 检测本机已装的 Agent，安装/更新技能并校验 sha256 |
 | [`scripts/pr-check-env.sh`](scripts/pr-check-env.sh) | 自检：`gh` 版本、`--attach` 是否可用、登录身份、目标仓库写权限 |
 | [`scripts/pr-media-comment.sh`](scripts/pr-media-comment.sh) | 给已有 PR 追加一条带多张附件的评论，不改原描述 |
 | [`templates/pr-body.md`](templates/pr-body.md) · [`.en.md`](templates/pr-body.en.md) | 含 Before/After 小节的 PR 模板 |

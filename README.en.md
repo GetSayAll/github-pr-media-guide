@@ -61,30 +61,47 @@ guide's scripts by absolute path (`"$GUIDE/..."`).
 
 ## Install the skill
 
-[`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) is a rule file for
-coding agents with no project-specific content.
-
-| Tool | Where it goes |
-| --- | --- |
-| WorkBuddy | `~/.workbuddy/skills/github-pr-media/` |
-| Claude Code (and Agent Skills compatible tools) | `~/.claude/skills/github-pr-media/`, or `<project>/.claude/skills/` |
-| Codex / anything that only reads `AGENTS.md` | paste the body into `AGENTS.md`, or link to the SKILL.md path |
+[`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) is a rule file for coding
+agents. **No project-private content, and no `AGENTS.md` edits** — install it into the user-level
+directory once and every project picks it up.
 
 ```bash
-mkdir -p ~/.claude/skills
-cp -R "$GUIDE/skills/github-pr-media" ~/.claude/skills/
+"$GUIDE/scripts/install-skill.sh" --dry-run   # see where it would land
+"$GUIDE/scripts/install-skill.sh"             # do it
 ```
 
-Once installed, the agent handles it end to end: capture to a temp dir → write Markdown
-with local paths → `gh --attach` → triage the failure type before retrying → verify the
-rendered PR and `git status`.
+The script detects which agents actually exist on this machine and writes only to those:
+
+| Tool | Detected by | Target |
+| --- | --- | --- |
+| WorkBuddy | `/Applications/WorkBuddy.app` | `~/.workbuddy/skills/github-pr-media/` |
+| Claude Code | `claude` on `PATH` | `~/.claude/skills/github-pr-media/` |
+| Codex | `codex` on `PATH` | `~/.codex/skills/github-pr-media/` |
+
+> **A config directory alone is not proof of installation.** Uninstalling a CLI usually leaves
+> `~/.claude` behind, so "directory exists, tool gone" is labelled `looks uninstalled` and
+> skipped — otherwise you believe it is installed when it is not. Every write is sha256-verified.
+
+Once installed, the agent handles it end to end: capture to a temp dir → write Markdown with local
+paths → `gh --attach` → triage the failure type before retrying → verify the rendered PR and
+`git status`.
+
+### Updating it
+
+Edit `skills/github-pr-media/SKILL.md` in this repo → commit → re-run `install-skill.sh`.
+Never edit the copies under `~/.<tool>/skills`; they are artifacts and the next sync overwrites them.
+
+Full details (detection rules, `--force` / `--target`, manual sync, uninstall) —
+[installation guide (Chinese)](docs/INSTALL-SKILL.zh-CN.md).
 
 ## Repo layout
 
 | Path | What it is |
 | --- | --- |
 | [`docs/PR-MEDIA-GUIDE.zh-CN.md`](docs/PR-MEDIA-GUIDE.zh-CN.md) | Full guide (Chinese): workflow, failure triage, limits, FAQ, evidence appendix |
+| [`docs/INSTALL-SKILL.zh-CN.md`](docs/INSTALL-SKILL.zh-CN.md) | Installing, updating, syncing and removing the skill |
 | [`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) | Loadable agent rule file |
+| [`scripts/install-skill.sh`](scripts/install-skill.sh) | Detects installed agents, syncs the skill, verifies sha256 |
 | [`scripts/pr-check-env.sh`](scripts/pr-check-env.sh) | Checks gh version, `--attach`, auth, and target-repo write access |
 | [`scripts/pr-media-comment.sh`](scripts/pr-media-comment.sh) | One comment with N attachments on an existing PR, body untouched |
 | [`templates/pr-body.md`](templates/pr-body.md) · [`.en.md`](templates/pr-body.en.md) | PR templates with Before/After sections |
