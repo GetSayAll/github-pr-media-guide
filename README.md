@@ -1,100 +1,118 @@
 # github-pr-media-guide
 
-Attach **Before/After UI screenshots** to a GitHub pull request as native GitHub
-media — the reviewer sees the real UI, and nothing extra lands in your Git history.
+把 **Before / After 界面截图**作为 GitHub 原生附件贴到 Pull Request 上：
+Reviewer 能直接看到真实界面，而截图**不会进入 Git 仓库**。
 
-This repo is the practical version, not the documentation paraphrase. Every
-non-obvious claim here was checked against `cli/cli` **v2.103.3** source and the
-GitHub docs on 2026-11-01, and the two scripts are tested. The evidence table at
-the end of the guide maps each claim to the exact source file.
+> 本手册的每条非显然结论都已对照 `cli/cli` **v2.103.3** 源码和 GitHub 官方文档核实（2026-11-01），
+> 两个脚本都实测过。依据对照表在手册末尾。
 
-## Why not just commit the screenshots?
+[English](README.en.md) · [完整手册](docs/PR-MEDIA-GUIDE.zh-CN.md)
 
-Because they are review artifacts, not source. Once they are committed you pay for
-them twice: repository size forever, and a history that every future clone carries.
-GitHub's native attachments give you a permanent, permission-scoped URL with zero
-impact on the repository.
+## 前置条件
 
-## Quick start
+1. `gh` ≥ **2.99.0**（`--attach` 从这个版本才有，2026-09-01 发布）
+2. 对目标仓库有 **write / maintain / admin** 权限（`read`、`triage` 会失败，而且报的是 404）
+3. GitHub.com（GitHub Enterprise Server 不支持；`ghe.com` 数据驻留租户可以）
+
+## 5 分钟上手
 
 ```bash
-# 0. environment (30 seconds, do not skip)
-gh --version                     # need >= 2.99.0
-./scripts/pr-check-env.sh owner/repo
+# ① 把手册放到任意位置。它是只读参考，不需要是 git 仓库。
+git clone https://github.com/GetSayAll/github-pr-media-guide ~/Tools/github-pr-media-guide
+GUIDE="$HOME/Tools/github-pr-media-guide"
 
-# 1. capture, outside the repository
+# ② 进入「你要发 PR 的那个项目」，自检环境
+cd /path/to/your-project
+"$GUIDE/scripts/pr-check-env.sh"
+
+# ③ 截图存到仓库之外
 ASSET_DIR="$(mktemp -d "${TMPDIR%/}/pr-media.XXXXXX")"
-screencapture -i "$ASSET_DIR/after.png"
+xcrun simctl io booted screenshot "$ASSET_DIR/after.png"   # 模拟器
+# screencapture -i "$ASSET_DIR/after.png"                   # macOS 交互选区
 
-# 2. write the body with local paths, then publish
-cp templates/pr-body.md "$ASSET_DIR/pr-body.md"
+# ④ 复制模板，按实际情况改
+cp "$GUIDE/templates/pr-body.md" "$ASSET_DIR/pr-body.md"
 
-gh pr create --base main --title "feat: ..." \
+# ⑤ 发布（仍在上面的项目目录里）
+gh pr create --base main --title "feat: 优化设置页面布局" \
   --body-file "$ASSET_DIR/pr-body.md" \
   --attach "$ASSET_DIR/before.png" \
   --attach "$ASSET_DIR/after.png"
 ```
 
-## What's in here
+**全程只在一个工作目录里操作**：`cd` 到你的项目后，手册相关命令一律用 `"$GUIDE/..."` 绝对路径调用。
 
-| Path | What it is |
+> 为什么反复强调：如果直接在手册仓库里跑 `./scripts/pr-check-env.sh`，
+> 它检查的是**手册仓库本身**（你是它的 owner，权限自然是 ADMIN），看起来全绿，
+> 但你的 PR 目标是另一个仓库。v1.1 的脚本现在会对这种情况直接给出警告。
+
+## 我该看哪一份
+
+| 你的情况 | 去哪 |
 | --- | --- |
-| [`docs/PR-MEDIA-GUIDE.zh-CN.md`](docs/PR-MEDIA-GUIDE.zh-CN.md) | The full guide (Chinese). Workflow, failure triage, limits, FAQ. |
-| [`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) | Drop-in skill/rule file for coding agents (Claude Code, Codex, WorkBuddy, …). |
-| [`scripts/pr-check-env.sh`](scripts/pr-check-env.sh) | Verifies gh version, `--attach` availability, auth, and target-repo write access. |
-| [`scripts/pr-media-comment.sh`](scripts/pr-media-comment.sh) | Adds one comment with N attachments to an existing PR, leaving the body alone. |
-| [`templates/pr-body.md`](templates/pr-body.md) | PR body template with Before/After sections (Chinese). |
-| [`templates/pr-body.en.md`](templates/pr-body.en.md) | Same, in English. |
+| 只想确认这台机器的 `gh` 能不能用 | 跑 `"$GUIDE/scripts/pr-check-env.sh"` |
+| 手动给 PR 加 Before/After | [手册 §3](docs/PR-MEDIA-GUIDE.zh-CN.md) |
+| 已有 PR，只想补几张图 | [手册 §4](docs/PR-MEDIA-GUIDE.zh-CN.md) 或 `scripts/pr-media-comment.sh` |
+| 让 AI Agent 全自动做 | 见下面「装到 Agent 里」 |
+| 上传报错 / 退出码非 0 | [手册 §8 常见问题](docs/PR-MEDIA-GUIDE.zh-CN.md) |
 
-## The four things that actually bite
+## 装到 Agent 里
 
-1. **`gh` too old.** `--attach` shipped in **v2.99.0** (2026-09-01). On anything
-   older you get `unknown flag: --attach`, and people then spend an hour debugging
-   permissions instead of running `brew upgrade gh`.
+[`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) 是给 Coding Agent 用的规则文件，
+不含任何项目私有信息。按你的工具放到对应位置：
 
-2. **A nonzero exit does not mean "no PR".** Uploads run *before* creation, so:
-   all uploads failed → **no PR exists**; some failed → **the PR exists**, the URL
-   was printed to stdout, exit code was still nonzero. Retrying `gh pr create`
-   blindly is how you get duplicate PRs.
-
-3. **Insufficient permission looks like a 404.** The upload endpoint returns 404
-   for `read` and `triage`, not 403. "Repository not found" usually means "get
-   write access".
-
-4. **`gh ... --help | grep -q -- '--attach'` lies.** `grep -q` exits on the first
-   match, `gh` takes SIGPIPE, and with `set -o pipefail` the pipeline reports
-   failure on a working binary. Use `grep -c`. (We hit this while writing v1.1 of
-   the guide; the check script now avoids it.)
-
-## Install the skill
+| 工具 | 放哪 |
+| --- | --- |
+| WorkBuddy | `~/.workbuddy/skills/github-pr-media/` |
+| Claude Code（及兼容 Agent Skills 规范的） | `~/.claude/skills/github-pr-media/`（个人）或 `<项目>/.claude/skills/`（仅该项目） |
+| Codex / 只读 `AGENTS.md` 的 | 把 SKILL.md 正文粘进 `AGENTS.md`，或写一行引用它的路径 |
 
 ```bash
-# Claude Code / WorkBuddy style skill directory
-cp -R skills/github-pr-media ~/.workbuddy/skills/
+mkdir -p ~/.claude/skills
+cp -R "$GUIDE/skills/github-pr-media" ~/.claude/skills/
 ```
 
-Or paste the "Pull Request UI Media Policy" section of the guide into your
-`AGENTS.md` / `CLAUDE.md`, if you would rather keep it as plain rules.
+装好之后，Agent 遇到「UI 改动要贴截图」会自己走这套流程：临时目录截图 → 写本地路径的 Markdown →
+`gh --attach` → 按失败类型判断要不要重试 → 验证渲染和 `git status`。
 
-## Verified facts, briefly
+## 目录结构
 
-| Claim | Source of truth |
+| 路径 | 是什么 |
 | --- | --- |
-| 50 files per command | `internal/attachments/flags.go` — `maxAttachments = 50` |
-| Images 10 MB, video 100 MB (client) | `internal/attachments/userasset.go` — `maxImageBytes`, `maxVideoBytes` |
-| Video 10 MB free / 100 MB paid (server) | GitHub Docs — Attaching files |
-| `ADMIN`/`MAINTAIN`/`WRITE` only; others 404 | `internal/attachments/client.go` — `uploadPermissions` |
-| GHES refused client-side | `internal/attachments/client.go` — `checkHost` |
-| `--attach` × `--web` / `--dry-run` rejected | `pkg/cmd/pr/create/create.go` — `MutuallyExclusive` |
-| Total failure → no PR created | `pkg/cmd/pr/create/create.go` — `submitPR`, `uploaded == 0` branch |
-| body-file paths relative to its dir, fallback cwd | `gh pr create --help` |
+| [`docs/PR-MEDIA-GUIDE.zh-CN.md`](docs/PR-MEDIA-GUIDE.zh-CN.md) | 完整手册：流程、失败分类、体积限制、FAQ、源码依据附录 |
+| [`skills/github-pr-media/SKILL.md`](skills/github-pr-media/SKILL.md) | 可被 Agent 直接加载的规则文件 |
+| [`scripts/pr-check-env.sh`](scripts/pr-check-env.sh) | 自检：`gh` 版本、`--attach` 是否可用、登录身份、目标仓库写权限 |
+| [`scripts/pr-media-comment.sh`](scripts/pr-media-comment.sh) | 给已有 PR 追加一条带多张附件的评论，不改原描述 |
+| [`templates/pr-body.md`](templates/pr-body.md) · [`.en.md`](templates/pr-body.en.md) | 含 Before/After 小节的 PR 模板 |
 
-## Requirements
+## 四个真会咬人的坑
 
-- GitHub.com (not GHES)
-- macOS for the capture snippets (`screencapture`, `sips`, `simctl`); the upload
-  commands are platform-independent, and both scripts handle GNU `stat` too.
+1. **`gh` 太旧。** `--attach` 从 **v2.99.0** 起才有。旧版只回一句 `unknown flag: --attach`，
+   而大多数人会先去查权限，白花一小时。先跑自检。
 
-## License
+2. **退出码非 0 不等于「没有 PR」。** 上传发生在创建**之前**：
+   全部上传失败 → **PR 没被创建**（报错含 `no pull request was created`）；
+   部分失败 → **PR 已经创建了**，URL 打到 stdout，退出码仍非 0。盲目重跑 `gh pr create` 就会出重复 PR。
 
-MIT — see [LICENSE](LICENSE).
+3. **权限不足长得像 404。** 服务端对 `read` / `triage` 返回的是 404，「repository not found」通常
+   意思是「去要写权限」，不是仓库名写错了。
+
+4. **`gh ... --help | grep -q -- '--attach'` 会骗你。** `grep -q` 命中就退出，`gh` 收 SIGPIPE，
+   配合 `set -o pipefail` 会把一个正常的 `gh` 判成缺参数。用 `grep -c`。
+   （写本手册 v1.1 时就是这么被坑的，自检脚本已绕开。）
+
+## 核实过的关键事实
+
+| 结论 | 依据 |
+| --- | --- |
+| 单命令最多 50 个文件 | `internal/attachments/flags.go` — `maxAttachments = 50` |
+| 图片 10 MB、视频 100 MB（客户端） | `internal/attachments/userasset.go` |
+| 视频服务端：Free 10 MB / 付费 100 MB | GitHub Docs — Attaching files |
+| 仅 `ADMIN`/`MAINTAIN`/`WRITE` 可传，其余 404 | `internal/attachments/client.go` |
+| GHES 被客户端直接拒绝 | `internal/attachments/client.go` — `checkHost` |
+| `--attach` 不能配 `--web` / `--dry-run` | `pkg/cmd/pr/create/create.go` |
+| 全部失败 → PR 未创建 | `pkg/cmd/pr/create/create.go` — `submitPR` |
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。

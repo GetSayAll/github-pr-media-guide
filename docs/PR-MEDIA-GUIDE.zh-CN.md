@@ -47,11 +47,16 @@ gh auth status
 | `gh: command not found` | 未安装 | `brew install gh` |
 | `auth status` 无目标仓库的写权限 | 权限不足 | 见 §8「404」一行 |
 
-也可以直接跑仓库里的脚本，它会一次性检查版本、`--attach` 可用性、登录身份和目标仓库写权限：
+也可以直接跑本仓库的脚本，它一次性检查版本、`--attach` 可用性、登录身份和目标仓库写权限：
 
 ```bash
-scripts/pr-check-env.sh <owner>/<repo>
+# GUIDE 是手册克隆到的位置；下面这条在工作目录=你的项目时也能跑
+GUIDE="$HOME/Tools/github-pr-media-guide"
+"$GUIDE/scripts/pr-check-env.sh" <owner>/<repo>
 ```
+
+> **别在手册仓库里跑不带参数的自检。** 那样它检查的是手册仓库本身——你是它的 owner，
+> 所有项都会通过，但你的 PR 目标根本没有被验证。脚本 v1.1 会对这个情况直接告警。
 
 ## 1. 推荐方案与基本原则
 
@@ -305,12 +310,21 @@ sips -s format jpeg "$ASSET_DIR/after.png" --out "$ASSET_DIR/after.jpg"
 | `scripts/pr-media-comment.sh` | 给已有 PR 追加一条带多张附件的评论，不改动原描述 |
 
 ```bash
-chmod +x scripts/*.sh
+GUIDE="$HOME/Tools/github-pr-media-guide"    # 手册克隆到的位置
+cd /path/to/your-project                     # 要发 PR 的那个仓库
 
-./scripts/pr-check-env.sh GetSayAll/example-repo
+# 自检（不传参数时检查当前目录所属仓库；传 owner/repo 更明确）
+"$GUIDE/scripts/pr-check-env.sh"
 
-./scripts/pr-media-comment.sh 123 /path/to/after.png /path/to/detail.png
+# 给已有 PR 追加一条带图的评论（-R 可省略，省略时用当前仓库）
+"$GUIDE/scripts/pr-media-comment.sh" 123 \
+  /path/to/after.png '/path/to/detail.png#详情页'
+
+# 用 -R 指定别的仓库、用 -b 自定义评论正文
+"$GUIDE/scripts/pr-media-comment.sh" -R owner/repo -b "第三轮验证" 123 ./after.png
 ```
+
+脚本已在克隆时自带可执行权限（git 记录为 `100755`），无需 `chmod`。若你的环境不保留权限位，再执行 `chmod +x "$GUIDE"/scripts/*.sh`。
 
 两个脚本都会在上传前完成本地校验（版本、文件存在、格式、体积、权限），但**最终结果以 GitHub 的返回为准**。
 

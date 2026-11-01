@@ -80,7 +80,19 @@ if [ -z "$repo" ]; then
     info "Re-run inside a repo, or pass owner/repo explicitly."
     exit 0
   fi
-  info "resolved current repository: $repo"
+  info "resolved repository from cwd: $repo"
+  # Running this inside the guide clone is the most common false alarm: every
+  # check passes because you own this repo, but your PR target is elsewhere.
+  case "$repo" in
+    */github-pr-media-guide)
+      warn 'that is this guide repo, not the project you want to send a PR to'
+      info 'Run this from your project directory, or pass owner/repo explicitly:'
+      info '  ./scripts/pr-check-env.sh your-org/your-repo'
+      ;;
+    *)
+      info 'if this is not your PR target, pass owner/repo or cd to that project first'
+      ;;
+  esac
 fi
 
 perm="$(gh repo view "$repo" --json viewerPermission --jq .viewerPermission 2>/dev/null || true)"
