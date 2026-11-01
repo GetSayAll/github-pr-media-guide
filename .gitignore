@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Local media scratch — screenshots must never be committed
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.mov
+*.webm
+!docs/**/*.png
+pr-media.*/
