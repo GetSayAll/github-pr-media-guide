@@ -49,6 +49,7 @@ fi
 # Do NOT pipe into `grep -q` here: it exits early, gh gets SIGPIPE, and with
 # `set -o pipefail` a perfectly good build reports 141. Capture first.
 missing=0
+guide_repo=0
 for cmd in create edit comment; do
   help_text="$(gh pr "$cmd" --help 2>/dev/null || true)"
   case "$help_text" in
@@ -88,6 +89,7 @@ if [ -z "$repo" ]; then
       warn 'that is this guide repo, not the project you want to send a PR to'
       info 'Run this from your project directory, or pass owner/repo explicitly:'
       info '  ./scripts/pr-check-env.sh your-org/your-repo'
+      guide_repo=1
       ;;
     *)
       info 'if this is not your PR target, pass owner/repo or cd to that project first'
@@ -115,4 +117,9 @@ case "$perm" in
     ;;
 esac
 
-printf '\nEnvironment OK. Next: docs/PR-MEDIA-GUIDE.zh-CN.md -> step 3\n'
+if [ "${guide_repo:-0}" -eq 1 ]; then
+  printf '\nTooling is fine, but the repository checked was this guide itself.\n'
+  printf 'Re-run against your actual PR target before relying on this.\n'
+else
+  printf '\nEnvironment OK. Next: docs/PR-MEDIA-GUIDE.zh-CN.md -> step 3\n'
+fi
